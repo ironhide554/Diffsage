@@ -41,7 +41,7 @@ git clone <your-repo-url> && cd Diffsage
 python -m venv .venv && source .venv/bin/activate
 pip install -e ".[dev]"
 cp .env.example .env            # add GEMINI_API_KEY from https://aistudio.google.com/apikey
-export $(grep -v '^#' .env | xargs)
+# .env is loaded automatically (works the same on Windows, macOS and Linux)
 
 cd /path/to/any/git/repo
 reviewbot review --base main
@@ -64,6 +64,16 @@ npx smee-client --url https://smee.io/<your-channel> --target http://localhost:8
 
 Deploy anywhere that runs a container or Python process (Fly.io, Railway, Render, Cloud Run). The webhook
 returns immediately and reviews run in the background, so GitHub's 10-second timeout is never an issue.
+A [`Dockerfile`](Dockerfile) is included:
+
+```bash
+docker build -t reviewbot .
+docker run -p 8000:8000 --env-file .env reviewbot
+```
+
+For `GITHUB_PRIVATE_KEY`, paste the PEM with literal `
+` sequences (or mount the file and set
+`GITHUB_PRIVATE_KEY_PATH`). Only one replica should run, since the per-PR lock is in-process.
 
 ## Configuration
 
@@ -76,11 +86,14 @@ enabled severities, and repo-specific guidance.
 python eval/score.py
 ```
 
-Add real buggy commits from open-source projects as JSON files in `eval/cases/` and paste the results here:
+Seven labeled cases live in `eval/cases/` (4 real-bug patches, 3 clean diffs that measure false alarms). Add real buggy
+commits from open-source projects as more JSON files to make the numbers meaningful.
 
-| Model | Prompt version | Precision | Recall |
-|---|---|---|---|
-| _fill in after running_ | v1 | | |
+| Model | Prompt version | Cases | Precision | Recall |
+|---|---|---|---|---|
+| gemini-2.5-flash | v1 | 7 | 100% | 100% |
+
+The cases are small and synthetic, so treat this as a smoke test, not a benchmark.
 
 ## Development
 

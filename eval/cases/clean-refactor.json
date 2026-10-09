@@ -1,0 +1,6 @@
+{
+  "name": "clean-refactor-no-issues",
+  "path": "app/utils.py",
+  "patch": "@@ -1,4 +1,6 @@\n-def add(a, b):\n-    return a + b\n+def add(a: int, b: int) -> int:\n+    \"\"\"Return the sum of two integers.\"\"\"\n+    return a + b\n",
+  "expected": []
+}

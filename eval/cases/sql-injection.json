@@ -1,0 +1,6 @@
+{
+  "name": "sql-injection-in-search",
+  "path": "app/search.py",
+  "patch": "@@ -1,5 +1,9 @@\n import sqlite3\n \n def find_user(conn, name):\n-    return conn.execute(\"SELECT * FROM users WHERE name = ?\", (name,)).fetchall()\n+    query = \"SELECT * FROM users WHERE name = '\" + name + \"'\"\n+    return conn.execute(query).fetchall()\n+\n+def total(prices):\n+    return sum(prices)\n",
+  "expected": [{"line": 4, "severity": "security"}]
+}

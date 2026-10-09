@@ -1,0 +1,6 @@
+{
+  "name": "command-injection-in-ping",
+  "path": "app/run.py",
+  "patch": "@@ -1,2 +1,5 @@\n import subprocess\n \n+def ping(host):\n+    return subprocess.run(\"ping -c 1 \" + host, shell=True, capture_output=True)\n+\n",
+  "expected": [{"line": 4, "severity": "security"}]
+}

@@ -1,0 +1,6 @@
+{
+  "name": "off-by-one-in-last-n",
+  "path": "app/pager.py",
+  "patch": "@@ -1,2 +1,4 @@\n def last_n(items, n):\n-    return items[-n:]\n+    if n == 0:\n+        return []\n+    return items[len(items) - n + 1:]\n",
+  "expected": [{"line": 4, "severity": "bug"}]
+}

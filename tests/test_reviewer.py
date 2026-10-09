@@ -14,7 +14,7 @@ PATCH = "@@ -1,2 +1,3 @@\n a\n+b = eval(x)\n c\n"
 
 
 def finding(**kw):
-    base = dict(line=2, severity="security", message="eval on user input", confidence=0.9)
+    base = {"line": 2, "severity": "security", "message": "eval on user input", "confidence": 0.9}
     base.update(kw)
     return Finding(**base)
 

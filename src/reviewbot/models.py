@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Literal, Optional
+from typing import Literal
 
 from pydantic import BaseModel, Field
 
@@ -15,7 +15,7 @@ class Finding(BaseModel):
     line: int = Field(description="New-file line number the comment attaches to.")
     severity: Severity
     message: str = Field(description="One to three sentences explaining the problem and why it matters.")
-    suggestion: Optional[str] = Field(
+    suggestion: str | None = Field(
         default=None,
         description="Replacement code for exactly that one line, or null if no one-line fix applies.",
     )

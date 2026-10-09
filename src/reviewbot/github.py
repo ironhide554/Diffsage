@@ -41,7 +41,7 @@ class GitHubClient:
         )
 
     @classmethod
-    def for_installation(cls, installation_id: int) -> "GitHubClient":
+    def for_installation(cls, installation_id: int) -> GitHubClient:
         resp = httpx.post(
             f"{API}/app/installations/{installation_id}/access_tokens",
             headers={

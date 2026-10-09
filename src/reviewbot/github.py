@@ -97,6 +97,20 @@ class GitHubClient:
                 return bodies
             page += 1
 
+    def list_issue_comment_bodies(self, repo: str, number: int) -> list[str]:
+        bodies: list[str] = []
+        page = 1
+        while True:
+            resp = self._http.get(
+                f"/repos/{repo}/issues/{number}/comments", params={"per_page": 100, "page": page}
+            )
+            resp.raise_for_status()
+            batch = resp.json()
+            bodies += [c.get("body") or "" for c in batch]
+            if len(batch) < 100:
+                return bodies
+            page += 1
+
     def list_review_bodies(self, repo: str, number: int) -> list[str]:
         bodies: list[str] = []
         page = 1

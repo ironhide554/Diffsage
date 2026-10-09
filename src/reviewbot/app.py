@@ -7,10 +7,12 @@ import hmac
 import logging
 import os
 
+from dotenv import load_dotenv
 from fastapi import BackgroundTasks, FastAPI, Header, HTTPException, Request
 
 from .service import review_pull_request
 
+load_dotenv()
 logging.basicConfig(level=logging.INFO)
 log = logging.getLogger("reviewbot")
 
@@ -41,9 +43,11 @@ async def webhook(
     raw = await request.body()
     secret = os.environ.get("GITHUB_WEBHOOK_SECRET", "")
     if not secret or not verify_signature(secret, raw, x_hub_signature_256):
+        log.warning("rejected webhook with invalid signature")
         raise HTTPException(status_code=401, detail="invalid signature")
 
     if x_github_event != "pull_request":
+        log.info("ignoring %s event", x_github_event)
         return {"ignored": x_github_event}
 
     payload = await request.json()

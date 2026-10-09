@@ -10,7 +10,9 @@ import subprocess
 import sys
 from pathlib import Path
 
+from dotenv import load_dotenv
 from rich.console import Console
+from rich.markup import escape
 from rich.panel import Panel
 
 from .config import parse_config
@@ -36,7 +38,11 @@ def cmd_review(args: argparse.Namespace) -> int:
 
     cfg_path = Path(".reviewbot.yml")
     cfg = parse_config(cfg_path.read_text(encoding="utf-8") if cfg_path.exists() else None)
-    llm = GeminiClient()
+    try:
+        llm = GeminiClient()
+    except RuntimeError as exc:
+        console.print(f"[red]{escape(str(exc))}[/red]")
+        return 2
 
     results = []
     for name, patch in split_git_diff(diff).items():
@@ -45,7 +51,7 @@ def cmd_review(args: argparse.Namespace) -> int:
             console.print(f"[dim]skip {name}: {reason}[/dim]")
             continue
         with console.status(f"Reviewing {name}..."):
-            results += [(name, f) for f in review_file(llm, name, patch, cfg)]
+            results += [(name, f) for f in review_file(llm, name, patch, cfg, args.title)]
 
     results = rank_and_cap(results, cfg.max_comments)
     if not results:
@@ -53,8 +59,11 @@ def cmd_review(args: argparse.Namespace) -> int:
         return 0
 
     for name, f in results:
-        body = f.message + (f"\n\n[bold]Suggestion:[/bold] {f.suggestion}" if f.suggestion else "")
-        console.print(Panel(body, title=f"{name}:{f.line}  [{f.severity}]", border_style="yellow"))
+        body = escape(f.message)
+        if f.suggestion:
+            body += f"\n\n[bold]Suggestion:[/bold] {escape(f.suggestion)}"
+        title = escape(f"{name}:{f.line}") + f"  \\[{f.severity}]"
+        console.print(Panel(body, title=title, border_style="yellow"))
     console.print(f"\n{len(results)} issue(s) found.")
     return 1 if args.fail_on_findings else 0
 
@@ -65,8 +74,10 @@ def main() -> None:
     review = sub.add_parser("review", help="review the current branch's diff")
     review.add_argument("--base", default="main", help="base branch to diff against (default: main)")
     review.add_argument("--staged", action="store_true", help="review staged changes only")
+    review.add_argument("--title", default="", help="optional PR title to give the reviewer context")
     review.add_argument("--fail-on-findings", action="store_true", help="exit 1 if anything is found")
     review.set_defaults(func=cmd_review)
+    load_dotenv()
     args = parser.parse_args()
     sys.exit(args.func(args))
 

@@ -1,0 +1,11 @@
+# Example per-repo config. Place this at the root of any repo the bot reviews.
+min_confidence: 0.7          # drop findings the model is less sure about
+max_comments: 10             # cap inline comments per review
+severities: [security, bug, performance, maintainability]   # add "nit" to enable style comments
+verify: true                 # second "skeptic" pass to cut false positives
+# ignore_defaults: false   # set to false to drop the built-in ignores (lockfiles, images, ...)
+ignore:
+  - "docs/*"
+  - "*.generated.py"
+instructions: |
+  This is a FastAPI service. Pay extra attention to auth checks and unvalidated input.

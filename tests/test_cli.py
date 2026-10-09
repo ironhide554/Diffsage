@@ -1,0 +1,57 @@
+import argparse
+import subprocess
+
+from reviewbot import cli
+from reviewbot.models import Finding
+
+
+def git(cwd, *args):
+    subprocess.run(
+        ["git", "-c", "user.name=t", "-c", "user.email=t@t", *args],
+        cwd=cwd,
+        check=True,
+        capture_output=True,
+    )
+
+
+def make_repo(tmp_path):
+    git(tmp_path, "init", "-q", "-b", "main")
+    (tmp_path / "my app.py").write_text("x = 1\n", encoding="utf-8")
+    git(tmp_path, "add", ".")
+    git(tmp_path, "commit", "-qm", "base")
+    git(tmp_path, "checkout", "-qb", "feat")
+    (tmp_path / "my app.py").write_text("x = 1\ny = eval(input())\n", encoding="utf-8")
+    git(tmp_path, "commit", "-qam", "change")
+
+
+def args(**kw):
+    base = {"base": "main", "staged": False, "fail_on_findings": True, "title": ""}
+    return argparse.Namespace(**{**base, **kw})
+
+
+def test_review_reports_findings_for_filename_with_space(tmp_path, monkeypatch):
+    make_repo(tmp_path)
+    monkeypatch.chdir(tmp_path)
+    seen = []
+
+    def fake_review(llm, name, patch, cfg, title=""):
+        seen.append(name)
+        return [Finding(line=2, severity="security", message="eval [bad]", confidence=0.9)]
+
+    monkeypatch.setattr(cli, "GeminiClient", lambda: object())
+    monkeypatch.setattr(cli, "review_file", fake_review)
+    assert cli.cmd_review(args()) == 1  # "[bad]" in the message must not break Rich markup
+    assert seen == ["my app.py"]
+
+
+def test_missing_api_key_is_friendly(tmp_path, monkeypatch):
+    make_repo(tmp_path)
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.delenv("GEMINI_API_KEY", raising=False)
+    assert cli.cmd_review(args()) == 2
+
+
+def test_bad_base_branch_returns_2(tmp_path, monkeypatch):
+    make_repo(tmp_path)
+    monkeypatch.chdir(tmp_path)
+    assert cli.cmd_review(args(base="nope")) == 2

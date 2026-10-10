@@ -97,3 +97,17 @@ def test_github_action_failure_returns_1(tmp_path, monkeypatch):
 
     monkeypatch.setattr(cli, "review_with_token", boom)
     assert cli.cmd_github_action(argparse.Namespace()) == 1
+
+
+def test_quota_error_is_reported_cleanly(tmp_path, monkeypatch):
+    from reviewbot.llm import QuotaExceeded
+
+    make_repo(tmp_path)
+    monkeypatch.chdir(tmp_path)
+
+    def out_of_quota(*a, **k):
+        raise QuotaExceeded("daily quota [used up]")
+
+    monkeypatch.setattr(cli, "GeminiClient", lambda: object())
+    monkeypatch.setattr(cli, "review_file", out_of_quota)
+    assert cli.cmd_review(args()) == 2

@@ -75,3 +75,14 @@ def test_missing_api_key(monkeypatch):
     monkeypatch.delenv("GEMINI_API_KEY", raising=False)
     with pytest.raises(RuntimeError):
         llm_module.GeminiClient()
+
+
+def test_daily_quota_fails_fast_without_retrying(make):
+    err = errors.APIError(
+        429,
+        {"error": {"message": "Quota exceeded: GenerateRequestsPerDayPerProjectPerModel-FreeTier"}},
+    )
+    client, models = make([err, FakeResponse(parsed=GOOD)])
+    with pytest.raises(llm_module.QuotaExceeded):
+        client.generate("s", "p", Verdicts)
+    assert models.calls == 1

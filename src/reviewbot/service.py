@@ -9,7 +9,7 @@ import httpx
 
 from .config import parse_config
 from .github import GitHubClient
-from .llm import GeminiClient
+from .llm import GeminiClient, QuotaExceeded
 from .diffparse import ParsedPatch, parse_patch
 from .models import Finding
 from .reviewer import (
@@ -109,6 +109,8 @@ def _review_once(gh: GitHubClient, repo: str, number: int) -> None:
                 if fp in already_posted or near_existing(name, finding, existing_marks):
                     continue
                 candidates.append((name, finding))
+        except QuotaExceeded:
+            raise  # every remaining file would fail too; post nothing rather than a pile of skips
         except Exception:  # one bad file should not sink the whole review
             log.exception("failed reviewing %s", name)
             skipped.append(f"{name} (error)")

@@ -20,7 +20,7 @@ from rich.panel import Panel
 
 from .config import parse_config
 from .diffparse import split_git_diff
-from .llm import GeminiClient
+from .llm import GeminiClient, QuotaExceeded
 from .reviewer import rank_and_cap, review_file, skip_reason
 from .service import review_with_token
 
@@ -54,8 +54,12 @@ def cmd_review(args: argparse.Namespace) -> int:
         if reason:
             console.print(f"[dim]skip {name}: {reason}[/dim]")
             continue
-        with console.status(f"Reviewing {name}..."):
-            results += [(name, f) for f in review_file(llm, name, patch, cfg, args.title)]
+        try:
+            with console.status(f"Reviewing {name}..."):
+                results += [(name, f) for f in review_file(llm, name, patch, cfg, args.title)]
+        except QuotaExceeded as exc:
+            console.print(f"[red]{escape(str(exc))}[/red]")
+            return 2
 
     results = rank_and_cap(results, cfg.max_comments)
     if not results:

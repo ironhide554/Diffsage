@@ -173,3 +173,17 @@ def test_distant_or_different_severity_comments_do_not_suppress(setup):
     other = setup(FakeGH(review_comments=[old_comment(2, "Bug")], reviews=[SUMMARY_MARKER]))
     service.review_pull_request(1, "o/r", 1)
     assert len(other.created) == 1
+
+
+def test_quota_exhaustion_aborts_without_posting(setup, monkeypatch):
+    from reviewbot.llm import QuotaExceeded
+
+    gh = setup(FakeGH())
+
+    def out_of_quota(*a, **k):
+        raise QuotaExceeded("daily quota")
+
+    monkeypatch.setattr(service, "review_file", out_of_quota)
+    with pytest.raises(QuotaExceeded):
+        service.review_pull_request(1, "o/r", 1)
+    assert gh.created == [] and gh.issue_posts == []

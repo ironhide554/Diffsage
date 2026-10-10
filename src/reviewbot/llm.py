@@ -16,6 +16,14 @@ T = TypeVar("T", bound=BaseModel)
 RETRYABLE = {429, 500, 502, 503, 504}
 
 
+class QuotaExceeded(RuntimeError):
+    """The daily request quota is used up; retrying within this run cannot help."""
+
+
+def _is_daily_quota(exc: errors.APIError) -> bool:
+    return getattr(exc, "code", None) == 429 and "PerDay" in str(exc)
+
+
 # Shared across client instances so concurrent PR reviews respect one rate limit.
 _throttle_lock = threading.Lock()
 _last_call = 0.0
@@ -64,6 +72,11 @@ class GeminiClient:
                     model=self.model, contents=prompt, config=config
                 )
             except errors.APIError as exc:
+                if _is_daily_quota(exc):
+                    raise QuotaExceeded(
+                        f"Daily Gemini quota for {self.model} is used up (free tier is small). "
+                        "Wait for the reset, set GEMINI_MODEL to another model, or use a paid key."
+                    ) from exc
                 code = getattr(exc, "code", None)
                 if code in RETRYABLE and attempt < self._max_retries:
                     time.sleep(min(2 ** (attempt + 1), 30))

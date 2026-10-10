@@ -17,3 +17,4 @@ def ping(host: str) -> bytes:
 
 def last_n(items: list, n: int) -> list:
     return items[len(items) - n + 1 :]
+# trivial change

@@ -174,14 +174,15 @@ commits from open-source projects as more JSON files to make the numbers meaning
 
 | Model | Cases | Precision | Recall | Notes |
 |---|---|---|---|---|
-| gemini-2.5-flash | 7 | 100% | 100% | Measured before the later suggestion-prompt tweak; re-run to refresh |
+| gemini-3.5-flash-lite | 7 | 100% | 100% | Current prompt (measured 2026-10-10) |
+| gemini-2.5-flash | 7 | 100% | 100% | Earlier prompt, before the suggestion tweak |
 
 The cases are small and synthetic, so treat this as a smoke test, not a benchmark.
 
 ## Development
 
 ```bash
-pytest -q       # 51 offline tests (no API key or network needed)
+pytest -q       # 54 offline tests (no API key or network needed)
 ruff check .
 ```
 
@@ -202,6 +203,11 @@ src/reviewbot/
 - Fork PRs can't be reviewed by the Action (see above); use the App.
 - Suggestions only cover single-line fixes; larger fixes are described in the comment text.
 - Two different same-severity issues on adjacent lines can be merged into one comment.
+- The Gemini free tier is small. In practice `gemini-2.5-flash` allowed only **20 requests per day per
+  project**, and each reviewed file costs up to two calls, so a handful of PRs can use it up. When that happens
+  the run stops with a clear "daily quota" message and posts nothing. Quotas and available models change, so
+  check [Google's rate limits](https://ai.google.dev/gemini-api/docs/rate-limits), set `GEMINI_MODEL` (or the
+  Action's `gemini-model` input) to a model with more headroom, or use a paid key.
 - A large PR is slow on the free tier: with the default 8 requests per minute, each file costs up to two
   calls, and at most 25 files are reviewed per PR.
 - Only the diff is sent to the model, not the full source of each file.

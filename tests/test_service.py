@@ -125,3 +125,10 @@ def test_concurrent_push_queues_one_rerun(setup, monkeypatch):
     monkeypatch.setattr(service, "_review_once", once)
     service.review_pull_request(1, "o/r", 1)
     assert len(runs) == 2
+
+
+def test_review_with_token_uses_a_plain_client(setup, monkeypatch):
+    gh = setup(FakeGH())
+    monkeypatch.setattr(service, "GitHubClient", lambda token: gh)
+    service.review_with_token("tok", "o/r", 1)
+    assert gh.created and SUMMARY_MARKER in gh.created[0][0]

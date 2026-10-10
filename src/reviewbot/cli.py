@@ -1,11 +1,14 @@
-"""Local CLI: review your current git diff before you push.
+"""CLI: review your git diff before you push, or the triggering PR inside GitHub Actions.
 
     reviewbot review --base main
+    reviewbot github-action
 """
 
 from __future__ import annotations
 
 import argparse
+import json
+import os
 import subprocess
 import sys
 from pathlib import Path
@@ -19,6 +22,7 @@ from .config import parse_config
 from .diffparse import split_git_diff
 from .llm import GeminiClient
 from .reviewer import rank_and_cap, review_file, skip_reason
+from .service import review_with_token
 
 console = Console()
 
@@ -68,6 +72,28 @@ def cmd_review(args: argparse.Namespace) -> int:
     return 1 if args.fail_on_findings else 0
 
 
+def cmd_github_action(args: argparse.Namespace) -> int:
+    """Review the pull request that triggered a GitHub Actions run."""
+    event_path, token = os.environ.get("GITHUB_EVENT_PATH"), os.environ.get("GITHUB_TOKEN")
+    if not event_path or not token:
+        console.print("[red]GITHUB_EVENT_PATH and GITHUB_TOKEN are required (run inside Actions).[/red]")
+        return 2
+    event = json.loads(Path(event_path).read_text(encoding="utf-8"))
+    pr = event.get("pull_request")
+    if not pr:
+        console.print("Not a pull_request event; nothing to do.")
+        return 0
+    if pr.get("draft"):
+        console.print("Draft pull request; skipping.")
+        return 0
+    try:
+        review_with_token(token, event["repository"]["full_name"], pr["number"])
+    except Exception as exc:  # surface a one-line reason instead of a traceback in the job log
+        console.print(f"[red]review failed:[/red] {escape(str(exc))}")
+        return 1
+    return 0
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(prog="reviewbot")
     sub = parser.add_subparsers(dest="command", required=True)
@@ -77,6 +103,8 @@ def main() -> None:
     review.add_argument("--title", default="", help="optional PR title to give the reviewer context")
     review.add_argument("--fail-on-findings", action="store_true", help="exit 1 if anything is found")
     review.set_defaults(func=cmd_review)
+    action = sub.add_parser("github-action", help="review the PR that triggered a GitHub Actions run")
+    action.set_defaults(func=cmd_github_action)
     load_dotenv()
     args = parser.parse_args()
     sys.exit(args.func(args))

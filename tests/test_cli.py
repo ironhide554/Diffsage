@@ -1,4 +1,5 @@
 import argparse
+import json
 import subprocess
 
 from reviewbot import cli
@@ -55,3 +56,44 @@ def test_bad_base_branch_returns_2(tmp_path, monkeypatch):
     make_repo(tmp_path)
     monkeypatch.chdir(tmp_path)
     assert cli.cmd_review(args(base="nope")) == 2
+
+
+def test_github_action_requires_env(monkeypatch):
+    monkeypatch.delenv("GITHUB_EVENT_PATH", raising=False)
+    monkeypatch.delenv("GITHUB_TOKEN", raising=False)
+    assert cli.cmd_github_action(argparse.Namespace()) == 2
+
+
+def _event(tmp_path, monkeypatch, payload):
+    path = tmp_path / "event.json"
+    path.write_text(json.dumps(payload), encoding="utf-8")
+    monkeypatch.setenv("GITHUB_EVENT_PATH", str(path))
+    monkeypatch.setenv("GITHUB_TOKEN", "tok")
+
+
+def test_github_action_reviews_the_pr(tmp_path, monkeypatch):
+    _event(tmp_path, monkeypatch, {"pull_request": {"number": 9}, "repository": {"full_name": "o/r"}})
+    calls = []
+    monkeypatch.setattr(cli, "review_with_token", lambda *a: calls.append(a))
+    assert cli.cmd_github_action(argparse.Namespace()) == 0
+    assert calls == [("tok", "o/r", 9)]
+
+
+def test_github_action_skips_drafts_and_non_pr_events(tmp_path, monkeypatch):
+    calls = []
+    monkeypatch.setattr(cli, "review_with_token", lambda *a: calls.append(a))
+    _event(tmp_path, monkeypatch, {"pull_request": {"number": 9, "draft": True}})
+    assert cli.cmd_github_action(argparse.Namespace()) == 0
+    _event(tmp_path, monkeypatch, {"push": {}})
+    assert cli.cmd_github_action(argparse.Namespace()) == 0
+    assert calls == []
+
+
+def test_github_action_failure_returns_1(tmp_path, monkeypatch):
+    _event(tmp_path, monkeypatch, {"pull_request": {"number": 9}, "repository": {"full_name": "o/r"}})
+
+    def boom(*a):
+        raise RuntimeError("quota [exhausted]")
+
+    monkeypatch.setattr(cli, "review_with_token", boom)
+    assert cli.cmd_github_action(argparse.Namespace()) == 1

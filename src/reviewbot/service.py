@@ -42,7 +42,7 @@ def review_pull_request(installation_id: int, repo: str, number: int) -> None:
         _running.add(key)
     try:
         while True:
-            _review_once(installation_id, repo, number)
+            _review_once(GitHubClient.for_installation(installation_id), repo, number)
             with _state_lock:
                 if key not in _rerun:
                     return
@@ -52,8 +52,12 @@ def review_pull_request(installation_id: int, repo: str, number: int) -> None:
             _running.discard(key)
 
 
-def _review_once(installation_id: int, repo: str, number: int) -> None:
-    gh = GitHubClient.for_installation(installation_id)
+def review_with_token(token: str, repo: str, number: int) -> None:
+    """Review one PR using a plain token (e.g. the GITHUB_TOKEN inside GitHub Actions)."""
+    _review_once(GitHubClient(token), repo, number)
+
+
+def _review_once(gh: GitHubClient, repo: str, number: int) -> None:
     llm = GeminiClient()
 
     pr = gh.get_pull(repo, number)

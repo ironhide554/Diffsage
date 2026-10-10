@@ -1,0 +1,35 @@
+name: reviewbot
+description: AI pull request reviewer. Leaves inline comments with one-click suggestions on every PR.
+branding:
+  icon: eye
+  color: purple
+
+inputs:
+  gemini-api-key:
+    description: Gemini API key (store it as a repository secret).
+    required: true
+  github-token:
+    description: Token used to read the PR and post the review. Needs pull-requests write access.
+    required: false
+    default: ${{ github.token }}
+  gemini-model:
+    description: Gemini model to use.
+    required: false
+    default: gemini-2.5-flash
+
+runs:
+  using: composite
+  steps:
+    - uses: actions/setup-python@v5
+      with:
+        python-version: "3.12"
+    - name: Install reviewbot
+      shell: bash
+      run: pip install --quiet "${{ github.action_path }}"
+    - name: Review pull request
+      shell: bash
+      env:
+        GEMINI_API_KEY: ${{ inputs.gemini-api-key }}
+        GEMINI_MODEL: ${{ inputs.gemini-model }}
+        GITHUB_TOKEN: ${{ inputs.github-token }}
+      run: reviewbot github-action

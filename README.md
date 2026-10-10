@@ -75,6 +75,38 @@ For `GITHUB_PRIVATE_KEY`, paste the PEM with literal `
 ` sequences (or mount the file and set
 `GITHUB_PRIVATE_KEY_PATH`). Only one replica should run, since the per-PR lock is in-process.
 
+## Run it as a GitHub Action (no server, no GitHub App)
+
+The easiest install: add a workflow to the repo you want reviewed and a `GEMINI_API_KEY` repository secret.
+
+```yaml
+# .github/workflows/review.yml
+name: AI review
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
+
+permissions:
+  contents: read
+  pull-requests: write
+
+concurrency:
+  group: review-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  review:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: ironhide554/Diffsage@main
+        with:
+          gemini-api-key: ${{ secrets.GEMINI_API_KEY }}
+```
+
+Comments are posted as `github-actions[bot]`. Dedupe, the skeptic pass, and `.reviewbot.yml` work exactly as in the
+App. Note that for pull requests from forks GitHub gives workflows a read-only token and no secrets, so the action
+cannot review those; use the GitHub App for public repos that take outside contributions.
+
 ## Configuration
 
 Drop a [`.reviewbot.yml`](.reviewbot.yml) in the repo being reviewed to tune confidence, ignored paths,
@@ -107,7 +139,7 @@ ruff check .
 - [ ] `@reviewbot explain` / `@reviewbot fix` replies to comments
 - [ ] Persist fingerprints and review stats in SQLite and add a small dashboard
 - [ ] Per-file full-source context, not just the diff
-- [ ] Publish as a GitHub Action for zero-hosting installs
+- [x] Publish as a GitHub Action for zero-hosting installs
 
 ## Privacy
 

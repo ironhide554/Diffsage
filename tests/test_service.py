@@ -79,6 +79,20 @@ def test_already_posted_finding_is_not_repeated(setup):
     assert gh.created == []  # nothing new and the summary was already posted
 
 
+def test_reworded_finding_on_same_line_is_not_reposted(setup):
+    # Regression: the live bot reposted comments because the model phrased the same
+    # problem differently on the next run. Dedupe must not depend on the wording.
+    first = setup(FakeGH(), findings=[finding("Using eval on input is dangerous.")])
+    service.review_pull_request(1, "o/r", 1)
+    posted = first.created[0][1][0]["body"]
+    gh = setup(
+        FakeGH(review_comments=[posted], reviews=[SUMMARY_MARKER]),
+        findings=[finding("Untrusted data reaches eval(), allowing code execution.")],
+    )
+    service.review_pull_request(1, "o/r", 1)
+    assert gh.created == []
+
+
 def test_new_finding_posted_without_a_second_summary(setup):
     gh = setup(FakeGH(reviews=[SUMMARY_MARKER]), findings=[finding("different problem")])
     service.review_pull_request(1, "o/r", 1)

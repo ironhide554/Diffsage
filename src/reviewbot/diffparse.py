@@ -19,6 +19,7 @@ class ParsedPatch:
     added_lines: set[int] = field(default_factory=set)
     commentable_lines: set[int] = field(default_factory=set)
     numbered: str = ""  # patch rendered with new-file line numbers, for the LLM
+    line_text: dict[int, str] = field(default_factory=dict)  # new-file line number -> source
 
 
 def parse_patch(patch: str) -> ParsedPatch:
@@ -38,12 +39,14 @@ def parse_patch(patch: str) -> ParsedPatch:
         if raw.startswith("+"):
             parsed.added_lines.add(new_line)
             parsed.commentable_lines.add(new_line)
+            parsed.line_text[new_line] = raw[1:]
             out.append(f"{new_line:>5} | {raw}")
             new_line += 1
         elif raw.startswith("-"):
             out.append(f"      | {raw}")
         else:  # context line (leading space) or blank
             parsed.commentable_lines.add(new_line)
+            parsed.line_text[new_line] = raw[1:]
             out.append(f"{new_line:>5} | {raw}")
             new_line += 1
 

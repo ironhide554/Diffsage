@@ -36,10 +36,15 @@ def skip_reason(filename: str, patch: str | None, cfg: Config) -> str | None:
     return None
 
 
-def fingerprint(path: str, message: str) -> str:
-    """Stable across pushes: ignores the line number, which shifts as code changes."""
-    normalized = re.sub(r"\W+", " ", message.lower()).strip()[:80]
-    return hashlib.sha1(f"{path}:{normalized}".encode()).hexdigest()[:12]
+def fingerprint(path: str, severity: str, code: str) -> str:
+    """Identify a finding by the flagged source line, not by the model's wording.
+
+    The model rephrases the same problem on every run, so hashing its message defeats
+    dedupe. Path + severity + the code on the flagged line is stable across pushes and
+    across line-number shifts, and changes only when the author edits that line.
+    """
+    normalized = re.sub(r"\s+", " ", code).strip()
+    return hashlib.sha1(f"{path}:{severity}:{normalized}".encode()).hexdigest()[:12]
 
 
 def review_file(
@@ -103,11 +108,11 @@ def rank_and_cap(findings: list[tuple[str, Finding]], cap: int) -> list[tuple[st
     return ordered[:cap]
 
 
-def render_comment(path: str, f: Finding) -> str:
+def render_comment(path: str, f: Finding, code: str = "") -> str:
     body = f"{EMOJI[f.severity]} **{f.severity.capitalize()}**: {f.message}"
     if f.suggestion:
         body += f"\n\n```suggestion\n{f.suggestion}\n```"
-    return f"{body}\n\n<!-- reviewbot:fp={fingerprint(path, f.message)} -->"
+    return f"{body}\n\n<!-- reviewbot:fp={fingerprint(path, f.severity, code or f.message)} -->"
 
 
 def existing_fingerprints(comment_bodies: list[str]) -> set[str]:

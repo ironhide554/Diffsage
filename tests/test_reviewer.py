@@ -34,14 +34,24 @@ def test_filter_snaps_or_drops_out_of_range_lines():
     assert [f.line for f in kept] == [2]
 
 
-def test_fingerprint_ignores_line_and_punctuation():
-    assert fingerprint("a.py", "Eval on user input!") == fingerprint("a.py", "eval on  user input")
-    assert fingerprint("a.py", "x") != fingerprint("b.py", "x")
+def test_fingerprint_depends_on_code_not_wording_or_whitespace():
+    assert fingerprint("a.py", "security", "b = eval(x)") == fingerprint(
+        "a.py", "security", "  b  =  eval(x)	"
+    )
+    assert fingerprint("a.py", "security", "x") != fingerprint("b.py", "security", "x")
+    assert fingerprint("a.py", "security", "x") != fingerprint("a.py", "bug", "x")
+    assert fingerprint("a.py", "security", "x") != fingerprint("a.py", "security", "y")
 
 
 def test_marker_round_trip_for_dedupe():
-    body = render_comment("a.py", finding())
-    assert existing_fingerprints([body]) == {fingerprint("a.py", "eval on user input")}
+    body = render_comment("a.py", finding(), "b = eval(x)")
+    assert existing_fingerprints([body]) == {fingerprint("a.py", "security", "b = eval(x)")}
+
+
+def test_reworded_message_has_the_same_marker():
+    one = render_comment("a.py", finding(message="Using eval is dangerous."), "b = eval(x)")
+    two = render_comment("a.py", finding(message="eval on untrusted input allows RCE."), "b = eval(x)")
+    assert existing_fingerprints([one]) == existing_fingerprints([two])
 
 
 def test_suggestion_block_rendered():

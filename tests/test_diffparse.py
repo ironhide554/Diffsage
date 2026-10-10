@@ -18,6 +18,13 @@ def test_added_and_context_lines():
     assert p.commentable_lines == {10, 11, 12, 13, 14, 15}
 
 
+def test_line_text_maps_new_file_lines_to_source():
+    p = parse_patch(PATCH)
+    assert p.line_text[12] == "c = compute()"
+    assert p.line_text[10] == "a = 1"  # context lines too
+    assert 9 not in p.line_text
+
+
 def test_numbered_output_shows_line_numbers_not_for_removed():
     p = parse_patch(PATCH)
     assert "   12 | +c = compute()" in p.numbered

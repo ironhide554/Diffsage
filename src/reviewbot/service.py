@@ -10,6 +10,7 @@ import httpx
 from .config import parse_config
 from .github import GitHubClient
 from .llm import GeminiClient
+from .diffparse import ParsedPatch, parse_patch
 from .models import Finding
 from .reviewer import (
     SUMMARY_MARKER,
@@ -78,7 +79,11 @@ def _review_once(gh: GitHubClient, repo: str, number: int) -> None:
 
     skipped: list[str] = []
     candidates: list[tuple[str, Finding]] = []
+    parsed_files: dict[str, ParsedPatch] = {}
     reviewed = 0
+
+    def code_of(name: str, finding: Finding) -> str:
+        return parsed_files[name].line_text.get(finding.line, "")
 
     for f in files:
         name, patch = f["filename"], f.get("patch")
@@ -89,9 +94,10 @@ def _review_once(gh: GitHubClient, repo: str, number: int) -> None:
             skipped.append(f"{name} ({reason})")
             continue
         reviewed += 1
+        parsed_files[name] = parse_patch(patch)
         try:
             for finding in review_file(llm, name, patch, cfg, title, body):
-                if fingerprint(name, finding.message) not in already_posted:
+                if fingerprint(name, finding.severity, code_of(name, finding)) not in already_posted:
                     candidates.append((name, finding))
         except Exception:  # one bad file should not sink the whole review
             log.exception("failed reviewing %s", name)
@@ -106,7 +112,7 @@ def _review_once(gh: GitHubClient, repo: str, number: int) -> None:
     )
     review_body = render_summary(summary, reviewed, skipped, len(chosen), [f for _, f in chosen])
     comments = [
-        {"path": p, "line": f.line, "side": "RIGHT", "body": render_comment(p, f)} for p, f in chosen
+        {"path": p, "line": f.line, "side": "RIGHT", "body": render_comment(p, f, code_of(p, f))} for p, f in chosen
     ]
 
     if not comments and not first_review:
@@ -126,6 +132,6 @@ def _review_once(gh: GitHubClient, repo: str, number: int) -> None:
         # A comment pointed at a line GitHub rejected: degrade to one PR comment. Keep the
         # hidden markers so the next push still dedupes against what was posted here.
         fallback = review_body + "\n\n" + "\n\n".join(
-            f"`{p}:{f.line}`\n{render_comment(p, f)}" for p, f in chosen
+            f"`{p}:{f.line}`\n{render_comment(p, f, code_of(p, f))}" for p, f in chosen
         )
         gh.post_issue_comment(repo, number, fallback)

@@ -17,7 +17,10 @@ class Finding(BaseModel):
     message: str = Field(description="One to three sentences explaining the problem and why it matters.")
     suggestion: str | None = Field(
         default=None,
-        description="Replacement code for exactly that one line, or null if no one-line fix applies.",
+        description=(
+            "Replacement code for exactly that one line, only if that line alone fully fixes "
+            "the problem; otherwise null."
+        ),
     )
     confidence: float = Field(description="0.0 to 1.0: how sure you are this is a real problem.")
 

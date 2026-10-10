@@ -14,8 +14,10 @@ from .diffparse import ParsedPatch, parse_patch
 from .models import Finding
 from .reviewer import (
     SUMMARY_MARKER,
+    comment_severity,
     existing_fingerprints,
     fingerprint,
+    near_existing,
     rank_and_cap,
     render_comment,
     render_summary,
@@ -69,10 +71,16 @@ def _review_once(gh: GitHubClient, repo: str, number: int) -> None:
 
     cfg = parse_config(gh.get_file_text(repo, ".reviewbot.yml", head_sha))
     files = gh.list_pr_files(repo, number)
-    posted_bodies = gh.list_review_comment_bodies(repo, number) + gh.list_issue_comment_bodies(
+    review_comments = gh.list_review_comments(repo, number)
+    posted_bodies = [c["body"] for c in review_comments] + gh.list_issue_comment_bodies(
         repo, number
     )
     already_posted = existing_fingerprints(posted_bodies)
+    existing_marks = [
+        (c["path"], c["line"], comment_severity(c["body"]))
+        for c in review_comments
+        if c.get("line") and c["body"]
+    ]
     first_review = not any(
         SUMMARY_MARKER in b for b in gh.list_review_bodies(repo, number) + posted_bodies
     )
@@ -97,8 +105,10 @@ def _review_once(gh: GitHubClient, repo: str, number: int) -> None:
         parsed_files[name] = parse_patch(patch)
         try:
             for finding in review_file(llm, name, patch, cfg, title, body):
-                if fingerprint(name, finding.severity, code_of(name, finding)) not in already_posted:
-                    candidates.append((name, finding))
+                fp = fingerprint(name, finding.severity, code_of(name, finding))
+                if fp in already_posted or near_existing(name, finding, existing_marks):
+                    continue
+                candidates.append((name, finding))
         except Exception:  # one bad file should not sink the whole review
             log.exception("failed reviewing %s", name)
             skipped.append(f"{name} (error)")

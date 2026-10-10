@@ -22,6 +22,29 @@ from .prompts import (
 log = logging.getLogger("reviewbot")
 
 SUMMARY_MARKER = "<!-- reviewbot:summary -->"
+SEVERITY_RE = re.compile(r"\*\*(\w+)\*\*:")
+NEAR_LINES = 1  # same-severity comments this close together are treated as the same issue
+
+
+def comment_severity(body: str) -> str | None:
+    """Recover the severity from a comment we rendered, e.g. '🔒 **Security**: ...'."""
+    match = SEVERITY_RE.search(body or "")
+    severity = match.group(1).lower() if match else None
+    return severity if severity in SEVERITY_ORDER else None
+
+
+def near_existing(path: str, f: Finding, existing: list[tuple[str, int, str | None]]) -> bool:
+    """True if we already commented on this issue, possibly anchored one line away.
+
+    The model sometimes reports one problem on two adjacent lines (e.g. the line that
+    builds a SQL string and the line that executes it) across different runs.
+    """
+    return any(
+        p == path and sev == f.severity and abs(line - f.line) <= NEAR_LINES
+        for p, line, sev in existing
+    )
+
+
 MARKER_RE = re.compile(r"<!-- reviewbot:fp=([0-9a-f]{12}) -->")
 EMOJI = {"security": "🔒", "bug": "🐛", "performance": "⚡", "maintainability": "🧹", "nit": "💬"}
 

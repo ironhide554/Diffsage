@@ -130,3 +130,23 @@ def test_summary_shows_adjusted_risk():
     summary = PRSummary(summary="adds a file", risk="low", walkthrough=["x"])
     out = render_summary(summary, 1, [], 1, [finding(severity="security")])
     assert "🔴 high" in out and "🟢" not in out
+
+
+def test_comment_severity_round_trips_with_render_comment():
+    from reviewbot.reviewer import comment_severity
+
+    for sev in ["security", "bug", "performance", "maintainability", "nit"]:
+        assert comment_severity(render_comment("a.py", finding(severity=sev), "x")) == sev
+    assert comment_severity("a human wrote **Note**: hi") is None
+    assert comment_severity("") is None
+
+
+def test_near_existing_matches_path_severity_and_proximity():
+    from reviewbot.reviewer import near_existing
+
+    existing = [("a.py", 10, "security")]
+    assert near_existing("a.py", finding(line=11), existing)
+    assert near_existing("a.py", finding(line=10), existing)
+    assert not near_existing("a.py", finding(line=12), existing)
+    assert not near_existing("b.py", finding(line=10), existing)
+    assert not near_existing("a.py", finding(line=10, severity="bug"), existing)

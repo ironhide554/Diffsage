@@ -30,8 +30,12 @@ class FakeGH:
     def list_pr_files(self, *a):
         return [{"filename": "a.py", "patch": PATCH, "additions": 1, "deletions": 0}]
 
-    def list_review_comment_bodies(self, *a):
-        return self.review_comments
+    def list_review_comments(self, *a):
+        # Plain strings are treated as comments on a.py line 2, as the bot itself posted them.
+        return [
+            c if isinstance(c, dict) else {"path": "a.py", "line": 2, "body": c}
+            for c in self.review_comments
+        ]
 
     def list_issue_comment_bodies(self, *a):
         return self.issue_comments
@@ -146,3 +150,26 @@ def test_review_with_token_uses_a_plain_client(setup, monkeypatch):
     monkeypatch.setattr(service, "GitHubClient", lambda token: gh)
     service.review_with_token("tok", "o/r", 1)
     assert gh.created and SUMMARY_MARKER in gh.created[0][0]
+
+
+def old_comment(line, severity_word="Security", path="a.py"):
+    # A comment from an earlier run: different wording and fingerprint, so only the
+    # position and severity can identify it as the same issue.
+    body = f"🔒 **{severity_word}**: older wording\n\n<!-- reviewbot:fp=aaaaaaaaaaaa -->"
+    return {"path": path, "line": line, "body": body}
+
+
+def test_adjacent_line_same_severity_is_treated_as_already_reported(setup):
+    # Regression: the model reported one SQL injection on line 10, then on line 11.
+    gh = setup(FakeGH(review_comments=[old_comment(3)], reviews=[SUMMARY_MARKER]))
+    service.review_pull_request(1, "o/r", 1)  # finding is on line 2; existing comment on line 3
+    assert gh.created == []
+
+
+def test_distant_or_different_severity_comments_do_not_suppress(setup):
+    far = setup(FakeGH(review_comments=[old_comment(30)], reviews=[SUMMARY_MARKER]))
+    service.review_pull_request(1, "o/r", 1)
+    assert len(far.created) == 1
+    other = setup(FakeGH(review_comments=[old_comment(2, "Bug")], reviews=[SUMMARY_MARKER]))
+    service.review_pull_request(1, "o/r", 1)
+    assert len(other.created) == 1

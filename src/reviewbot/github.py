@@ -83,8 +83,10 @@ class GitHubClient:
             return base64.b64decode(data["content"]).decode("utf-8", errors="replace")
         return None
 
-    def list_review_comment_bodies(self, repo: str, number: int) -> list[str]:
-        bodies: list[str] = []
+    def list_review_comments(self, repo: str, number: int) -> list[dict]:
+        """Inline review comments as {path, line, body}. `line` falls back to the original
+        line when the comment is outdated (GitHub nulls `line` once the code moves)."""
+        comments: list[dict] = []
         page = 1
         while True:
             resp = self._http.get(
@@ -92,9 +94,16 @@ class GitHubClient:
             )
             resp.raise_for_status()
             batch = resp.json()
-            bodies += [c.get("body", "") for c in batch]
+            comments += [
+                {
+                    "path": c.get("path", ""),
+                    "line": c.get("line") or c.get("original_line"),
+                    "body": c.get("body") or "",
+                }
+                for c in batch
+            ]
             if len(batch) < 100:
-                return bodies
+                return comments
             page += 1
 
     def list_issue_comment_bodies(self, repo: str, number: int) -> list[str]:

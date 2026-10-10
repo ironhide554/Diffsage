@@ -14,6 +14,9 @@ from pydantic import BaseModel, ValidationError
 T = TypeVar("T", bound=BaseModel)
 
 RETRYABLE = {429, 500, 502, 503, 504}
+# gemini-2.5-flash only allowed ~20 requests/day on the free tier and its -lite sibling is closed to
+# new users, so default to the current Flash-Lite, which answers our structured output correctly.
+DEFAULT_MODEL = "gemini-3.5-flash-lite"
 
 
 class QuotaExceeded(RuntimeError):
@@ -41,7 +44,7 @@ class GeminiClient:
         if not key:
             raise RuntimeError("GEMINI_API_KEY is not set (get a free key at aistudio.google.com/apikey).")
         self._client = genai.Client(api_key=key)
-        self.model = model or os.environ.get("GEMINI_MODEL", "gemini-2.5-flash")
+        self.model = model or os.environ.get("GEMINI_MODEL", DEFAULT_MODEL)
         rpm = rpm or int(os.environ.get("GEMINI_RPM", "8"))
         self._min_interval = 60.0 / max(rpm, 1)
         self._max_retries = max_retries

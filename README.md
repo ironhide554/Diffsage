@@ -160,7 +160,7 @@ Drop a [`.reviewbot.yml`](.reviewbot.yml) in the root of the repo being reviewed
 | `ignore_defaults` | `true` | Set `false` to drop the built-in ignores (lockfiles, images, `dist/*`, ...) |
 | `instructions` | empty | Repo-specific guidance for the reviewer (max 2000 characters) |
 
-Environment variables: `GEMINI_API_KEY`, `GEMINI_MODEL` (default `gemini-2.5-flash`), and `GEMINI_RPM`
+Environment variables: `GEMINI_API_KEY`, `GEMINI_MODEL` (default `gemini-3.5-flash-lite`), and `GEMINI_RPM`
 (requests per minute, default `8`, matched to the free tier).
 
 ## Evaluation
@@ -205,9 +205,12 @@ src/reviewbot/
 - Two different same-severity issues on adjacent lines can be merged into one comment.
 - The Gemini free tier is small. In practice `gemini-2.5-flash` allowed only **20 requests per day per
   project**, and each reviewed file costs up to two calls, so a handful of PRs can use it up. When that happens
-  the run stops with a clear "daily quota" message and posts nothing. Quotas and available models change, so
-  check [Google's rate limits](https://ai.google.dev/gemini-api/docs/rate-limits), set `GEMINI_MODEL` (or the
-  Action's `gemini-model` input) to a model with more headroom, or use a paid key.
+  the run stops with a clear "daily quota" message and posts nothing. Google does not publish per-model free-tier
+  numbers in its docs; they are shown only in your own
+  [AI Studio rate-limit page](https://aistudio.google.com/rate-limit). The default is therefore
+  `gemini-3.5-flash-lite`. On 2026-10-10 these free-tier models also returned correct structured reviews:
+  `gemini-3.1-flash-lite`, `gemini-3.6-flash` and `gemini-flash-lite-latest`. Set `GEMINI_MODEL` (or the Action's
+  `gemini-model` input) to switch, or use a paid key. Models and quotas change, so re-check occasionally.
 - A large PR is slow on the free tier: with the default 8 requests per minute, each file costs up to two
   calls, and at most 25 files are reviewed per PR.
 - Only the diff is sent to the model, not the full source of each file.

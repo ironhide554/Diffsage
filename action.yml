@@ -15,7 +15,7 @@ inputs:
   gemini-model:
     description: Gemini model to use.
     required: false
-    default: gemini-2.5-flash
+    default: gemini-3.5-flash-lite
 
 runs:
   using: composite

@@ -45,7 +45,7 @@ class GeminiClient:
             raise RuntimeError("GEMINI_API_KEY is not set (get a free key at aistudio.google.com/apikey).")
         self._client = genai.Client(api_key=key)
         self.model = model or os.environ.get("GEMINI_MODEL", DEFAULT_MODEL)
-        rpm = rpm or int(os.environ.get("GEMINI_RPM", "8"))
+        rpm = rpm or int(os.environ.get("GEMINI_RPM", "12"))
         self._min_interval = 60.0 / max(rpm, 1)
         self._max_retries = max_retries
         self.calls = 0

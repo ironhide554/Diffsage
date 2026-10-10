@@ -161,7 +161,7 @@ Drop a [`.reviewbot.yml`](.reviewbot.yml) in the root of the repo being reviewed
 | `instructions` | empty | Repo-specific guidance for the reviewer (max 2000 characters) |
 
 Environment variables: `GEMINI_API_KEY`, `GEMINI_MODEL` (default `gemini-3.5-flash-lite`), and `GEMINI_RPM`
-(requests per minute, default `8`, matched to the free tier).
+(requests per minute, default `12`, under the 15 the default model allows on the free tier).
 
 ## Evaluation
 
@@ -203,15 +203,20 @@ src/reviewbot/
 - Fork PRs can't be reviewed by the Action (see above); use the App.
 - Suggestions only cover single-line fixes; larger fixes are described in the comment text.
 - Two different same-severity issues on adjacent lines can be merged into one comment.
-- The Gemini free tier is small. In practice `gemini-2.5-flash` allowed only **20 requests per day per
-  project**, and each reviewed file costs up to two calls, so a handful of PRs can use it up. When that happens
-  the run stops with a clear "daily quota" message and posts nothing. Google does not publish per-model free-tier
-  numbers in its docs; they are shown only in your own
-  [AI Studio rate-limit page](https://aistudio.google.com/rate-limit). The default is therefore
-  `gemini-3.5-flash-lite`. On 2026-10-10 these free-tier models also returned correct structured reviews:
-  `gemini-3.1-flash-lite`, `gemini-3.6-flash` and `gemini-flash-lite-latest`. Set `GEMINI_MODEL` (or the Action's
-  `gemini-model` input) to switch, or use a paid key. Models and quotas change, so re-check occasionally.
-- A large PR is slow on the free tier: with the default 8 requests per minute, each file costs up to two
+- The Gemini free tier has daily caps, and each reviewed file costs up to two calls. Google does not publish
+  per-model numbers in its docs; they appear only on your own
+  [AI Studio rate-limit page](https://aistudio.google.com/rate-limit). Observed on 2026-10-10 (one project):
+
+  | Model | Requests/min | Requests/day |
+  |---|---|---|
+  | `gemini-3.5-flash-lite` (default) | 15 | 500 |
+  | `gemini-3.1-flash-lite` | 15 | 500 |
+  | `gemini-3.8-flash`, `gemini-3.6-flash`, `gemini-3-flash`, `gemini-2.5-flash` | 5 | 20 |
+
+  At 500 requests a day that is roughly 250 reviewed files. When the cap is hit the run stops with a clear
+  "daily quota" message and posts nothing. Set `GEMINI_MODEL` (or the Action's `gemini-model` input) to switch
+  models, lower `GEMINI_RPM` to 4 for the 5-per-minute models, or use a paid key. Limits change, so re-check.
+- A large PR is slow on the free tier: at the default 12 requests per minute, each file costs up to two
   calls, and at most 25 files are reviewed per PR.
 - Only the diff is sent to the model, not the full source of each file.
 

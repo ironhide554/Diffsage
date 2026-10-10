@@ -122,11 +122,31 @@ def summarize(llm: GeminiClient, pr_title: str, pr_body: str, files: list[tuple[
     return llm.generate(SUMMARY_SYSTEM, summary_prompt(pr_title, pr_body, overview), PRSummary)
 
 
-def render_summary(summary: PRSummary | None, reviewed: int, skipped: list[str], posted: int) -> str:
+RISK_LEVELS = ["low", "medium", "high"]
+
+
+def effective_risk(model_risk: str, findings: list[Finding]) -> str:
+    """The summary model never sees the findings, so raise its risk guess to match them."""
+    floor = "low"
+    if any(f.severity == "security" for f in findings):
+        floor = "high"
+    elif any(f.severity == "bug" for f in findings):
+        floor = "medium"
+    return max(model_risk, floor, key=RISK_LEVELS.index)
+
+
+def render_summary(
+    summary: PRSummary | None,
+    reviewed: int,
+    skipped: list[str],
+    posted: int,
+    findings: list[Finding] | None = None,
+) -> str:
     lines = [SUMMARY_MARKER, "## 🤖 Automated review"]
     if summary:
-        risk = {"low": "🟢", "medium": "🟡", "high": "🔴"}[summary.risk]
-        lines += [summary.summary, "", f"**Risk:** {risk} {summary.risk}", ""]
+        level = effective_risk(summary.risk, findings or [])
+        risk = {"low": "🟢", "medium": "🟡", "high": "🔴"}[level]
+        lines += [summary.summary, "", f"**Risk:** {risk} {level}", ""]
         lines += [f"- {item}" for item in summary.walkthrough[:8]]
         lines.append("")
     lines.append(f"Reviewed {reviewed} file(s); posted {posted} comment(s).")

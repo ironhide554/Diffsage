@@ -101,3 +101,22 @@ def test_ignore_defaults_can_be_disabled():
     cfg = parse_config("ignore_defaults: false\nignore: ['x/*']")
     assert not cfg.is_ignored("poetry.lock")
     assert cfg.is_ignored("x/a.py")
+
+
+def test_risk_is_raised_to_match_findings():
+    from reviewbot.reviewer import effective_risk
+
+    assert effective_risk("low", [finding(severity="security")]) == "high"
+    assert effective_risk("low", [finding(severity="bug")]) == "medium"
+    assert effective_risk("high", [finding(severity="bug")]) == "high"  # never lowered
+    assert effective_risk("low", []) == "low"
+    assert effective_risk("low", [finding(severity="maintainability")]) == "low"
+
+
+def test_summary_shows_adjusted_risk():
+    from reviewbot.models import PRSummary
+    from reviewbot.reviewer import render_summary
+
+    summary = PRSummary(summary="adds a file", risk="low", walkthrough=["x"])
+    out = render_summary(summary, 1, [], 1, [finding(severity="security")])
+    assert "🔴 high" in out and "🟢" not in out

@@ -104,7 +104,7 @@ def _review_once(gh: GitHubClient, repo: str, number: int) -> None:
         if first_review
         else None
     )
-    review_body = render_summary(summary, reviewed, skipped, len(chosen))
+    review_body = render_summary(summary, reviewed, skipped, len(chosen), [f for _, f in chosen])
     comments = [
         {"path": p, "line": f.line, "side": "RIGHT", "body": render_comment(p, f)} for p, f in chosen
     ]
